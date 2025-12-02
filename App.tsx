@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Palette, 
   Users, 
@@ -14,30 +14,64 @@ import {
   Layers,
   Lock,
   ShieldCheck,
-  Fingerprint
+  Fingerprint,
+  Film,
+  Clapperboard,
+  Image as ImageIcon,
+  CheckCircle2,
+  AlertCircle,
+  Cpu,
+  RefreshCw,
+  Maximize,
+  SlidersHorizontal,
+  Box,
+  RectangleHorizontal,
+  RectangleVertical,
+  Grid3X3,
+  Upload,
+  Play,
+  X,
+  Copy,
+  Settings,
+  Aperture,
+  Sun,
+  Droplets,
+  List,
+  FileText,
+  Paintbrush,
+  Move,
+  ScanFace,
+  Scaling
 } from 'lucide-react';
-import { AppState, AppView, Character, GenerationItem } from './types';
-import { trainCharacterIdentity, generateCreativeImage, editImageUtility, generateComponentCode } from './services/geminiService';
+import { AppState, AppView, Character, GenerationItem, AspectRatio } from './types';
+import { trainCharacterIdentity, generateCreativeImage, editImageUtility, generateComponentCode, generateScriptToStory, generateStoryFromPrompts } from './services/geminiService';
 
-// --- UI Primitives (3D Design System) ---
+// --- UI Primitives (Obsidian & Amber 3D System) ---
 
-// A tactile 3D button that presses down when clicked
 const Button3D: React.FC<{
   children: React.ReactNode;
   onClick?: () => void;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'accent';
   className?: string;
   disabled?: boolean;
   fullWidth?: boolean;
 }> = ({ children, onClick, variant = 'primary', className = '', disabled = false, fullWidth = false }) => {
-  const baseStyles = "relative font-bold py-3 px-6 rounded-xl transition-all duration-100 active:translate-y-1 active:border-b-0 focus:outline-none flex items-center justify-center gap-2";
-  const disabledStyles = "opacity-50 cursor-not-allowed border-b-0 translate-y-1";
+  // Base 3D Button Structure
+  const baseStyles = "relative font-bold py-3 px-6 rounded-xl transition-all duration-200 active:translate-y-1 active:shadow-none focus:outline-none flex items-center justify-center gap-2 select-none overflow-hidden group border-t border-white/10";
+  const disabledStyles = "opacity-50 cursor-not-allowed border-b-0 translate-y-1 bg-stone-800 text-stone-500 shadow-none";
   
+  // Theme Variants
   const variants = {
-    primary: "bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-b-4 border-indigo-900 shadow-lg shadow-indigo-500/20 hover:brightness-110",
-    secondary: "bg-slate-800 text-slate-200 border-b-4 border-slate-950 hover:bg-slate-750",
-    danger: "bg-red-600 text-white border-b-4 border-red-900 hover:bg-red-500",
-    ghost: "bg-transparent text-slate-400 hover:text-white hover:bg-white/5 border-b-0 py-2" // Flat for ghost
+    // Primary: Glowing Amber (Energy)
+    primary: "bg-gradient-to-b from-amber-500 to-amber-600 text-white border-b-4 border-amber-800 shadow-[0_8px_0_rgb(146,64,14),0_15px_20px_rgba(0,0,0,0.4)] hover:brightness-110",
+    // Secondary: Polished Zinc (Metal)
+    secondary: "bg-gradient-to-b from-stone-700 to-stone-800 text-stone-200 border-b-4 border-stone-950 shadow-[0_8px_0_rgb(12,10,9),0_15px_20px_rgba(0,0,0,0.4)] hover:bg-stone-600",
+    // Danger: Ruby (Alert)
+    danger: "bg-gradient-to-b from-red-600 to-red-700 text-white border-b-4 border-red-900 shadow-[0_8px_0_rgb(127,29,29),0_15px_20px_rgba(0,0,0,0.4)] hover:brightness-110",
+    // Accent: White Gold (Premium)
+    accent: "bg-gradient-to-b from-yellow-100 to-yellow-200 text-amber-900 border-b-4 border-yellow-600 shadow-[0_8px_0_rgb(202,138,4),0_15px_20px_rgba(0,0,0,0.4)] hover:brightness-110",
+    // Ghost: Transparent (Glass)
+    ghost: "bg-transparent text-stone-400 hover:text-white hover:bg-white/5 border-b-0 py-2 active:bg-white/10 shadow-none" 
   };
 
   return (
@@ -46,588 +80,535 @@ const Button3D: React.FC<{
       disabled={disabled}
       className={`${baseStyles} ${disabled ? disabledStyles : variants[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}
     >
-      {children}
+      {/* Glossy Top Sheen */}
+      {!disabled && variant !== 'ghost' && (
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent opacity-50 pointer-events-none rounded-t-xl" />
+      )}
+      <span className="relative z-10 flex items-center gap-2 drop-shadow-md">{children}</span>
     </button>
   );
 };
 
-// A panel that looks like glass floating in space
 const GlassPanel: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl shadow-2xl ${className}`}>
-    {children}
+  <div className={`backdrop-blur-xl bg-stone-900/60 border border-white/10 shadow-2xl rounded-2xl relative overflow-hidden ${className}`}>
+    {/* Noise Texture */}
+    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.015] pointer-events-none mix-blend-overlay" />
+    {/* Specular Highlight on Edges */}
+    <div className="absolute inset-0 border border-white/5 rounded-2xl pointer-events-none" />
+    <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
+    <div className="relative z-10">{children}</div>
   </div>
 );
 
-// An input field that looks carved into the surface
-const RecessedInput: React.FC<any> = ({ className, ...props }) => (
-  <input 
-    className={`bg-slate-950/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)] border border-slate-800/50 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-indigo-500/50 focus:outline-none transition-all placeholder-slate-600 ${className}`}
-    {...props}
-  />
+const RangeSlider: React.FC<{
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (val: number) => void;
+  formatValue?: (val: number) => string;
+  disabled?: boolean;
+}> = ({ label, value, min, max, step = 1, onChange, formatValue, disabled = false }) => (
+  <div className={`space-y-3 group ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-stone-500 group-hover:text-stone-300 transition-colors">
+      <span>{label}</span>
+      <span className="text-amber-500 font-mono bg-amber-950/30 px-2 py-0.5 rounded border border-amber-500/20">{formatValue ? formatValue(value) : value}</span>
+    </div>
+    <div className="relative h-8 flex items-center cursor-pointer">
+      {/* Track */}
+      <div className="absolute w-full h-3 bg-stone-950 rounded-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border-b border-white/5" />
+      {/* Fill */}
+      <div 
+        className="absolute h-3 bg-gradient-to-r from-stone-700 to-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.3)]" 
+        style={{ width: `${((value - min) / (max - min)) * 100}%` }}
+      />
+      {/* Thumb Input */}
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="absolute w-full h-full opacity-0 cursor-pointer z-20"
+      />
+      {/* Visual Thumb */}
+      <div 
+        className="absolute h-6 w-6 bg-gradient-to-b from-stone-200 to-stone-400 border-2 border-stone-100 rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.5)] pointer-events-none transition-all duration-75 ease-out z-10"
+        style={{ left: `calc(${((value - min) / (max - min)) * 100}% - 12px)` }}
+      >
+        <div className="absolute inset-0.5 rounded-full border border-stone-400" />
+      </div>
+    </div>
+  </div>
 );
 
-const RecessedTextArea: React.FC<any> = ({ className, ...props }) => (
-  <textarea 
-    className={`bg-slate-950/50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)] border border-slate-800/50 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-indigo-500/50 focus:outline-none transition-all placeholder-slate-600 resize-none ${className}`}
-    {...props}
-  />
-);
-
-// --- Security Gate Component ---
-const SecurityGate: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
-  const [code, setCode] = useState('');
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const handleUnlock = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    setLoading(true);
-    
-    // Simulate verification delay for effect
-    setTimeout(() => {
-      if (code.toLowerCase() === 'umaismusk') {
-        onUnlock();
-      } else {
-        setError(true);
-        setLoading(false);
-        setTimeout(() => setError(false), 500); // Reset shake
-      }
-    }, 600);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-3xl p-4">
-      <div className={`relative max-w-md w-full transition-transform duration-100 ${error ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
-        
-        {/* Decorative Glow */}
-        <div className="absolute -top-20 -left-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-700"></div>
-
-        <GlassPanel className="p-8 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
-          {/* Scan Line Effect */}
-          <div className="absolute inset-0 pointer-events-none opacity-10 bg-[linear-gradient(transparent_0%,#4f46e5_50%,transparent_100%)] bg-[length:100%_4px] animate-[scan_4s_linear_infinite]"></div>
-
-          <div className="text-center mb-8 relative z-10">
-            <div className="w-20 h-20 bg-slate-800 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-inner border border-slate-700">
-               {loading ? (
-                 <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-               ) : (
-                 <Lock className="text-indigo-400 w-10 h-10" />
-               )}
+const Select3D: React.FC<{
+    label: string;
+    icon?: React.ElementType;
+    value: string;
+    options: string[];
+    onChange: (val: string) => void;
+}> = ({ label, icon: Icon, value, options, onChange }) => (
+    <div className="space-y-2">
+       <label className="text-xs font-bold text-stone-500 uppercase tracking-widest flex items-center gap-2">
+          {Icon && <Icon size={12} />} {label}
+       </label>
+       <div className="relative">
+            <select 
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full appearance-none bg-stone-900 border border-stone-800 rounded-xl p-3 text-sm text-white outline-none cursor-pointer hover:bg-stone-800 transition-colors shadow-inner"
+            >
+                {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-stone-500">
+                <ChevronRight size={16} className="rotate-90" />
             </div>
-            <h1 className="text-3xl font-black text-white mb-2 tracking-tight">System Locked</h1>
-            <p className="text-slate-400 text-sm">Restricted Access. Identity Verification Required.</p>
-          </div>
-
-          <form onSubmit={handleUnlock} className="space-y-6 relative z-10">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                <ShieldCheck size={12} /> Security Code
-              </label>
-              <RecessedInput 
-                type="password"
-                placeholder="Enter Passcode..."
-                value={code}
-                onChange={(e: any) => { setCode(e.target.value); setError(false); }}
-                className={`w-full text-center text-lg tracking-[0.5em] font-mono ${error ? 'border-red-500/50 focus:ring-red-500/50 text-red-400' : ''}`}
-                autoFocus
-              />
-              {error && (
-                <p className="text-red-400 text-xs font-bold text-center mt-2 animate-pulse">ACCESS DENIED: INVALID CREDENTIALS</p>
-              )}
-            </div>
-
-            <Button3D fullWidth onClick={() => handleUnlock()} disabled={!code || loading} className="py-4 text-lg">
-              {loading ? 'Verifying...' : 'Unlock Terminal'}
-            </Button3D>
-          </form>
-
-          <div className="mt-8 text-center">
-            <p className="text-[10px] text-slate-600 font-mono">SECURE CONNECTION ESTABLISHED • HORIZON LABS V2.5</p>
-          </div>
-        </GlassPanel>
-      </div>
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-          20%, 40%, 60%, 80% { transform: translateX(5px); }
-        }
-        @keyframes scan {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(100%); }
-        }
-      `}</style>
+       </div>
     </div>
-  );
-};
-
-
-// --- Header ---
-const Header: React.FC = () => (
-  <header className="h-20 flex items-center justify-between px-8 sticky top-0 z-50 bg-slate-950/10 backdrop-blur-sm">
-    <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 transform rotate-3">
-            <Sparkles className="text-white" size={24} />
-        </div>
-        <div>
-            <h1 className="text-2xl font-black tracking-tight text-white drop-shadow-md">
-                Horizon <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Lab</span>
-            </h1>
-            <p className="text-[10px] text-slate-400 font-mono tracking-widest uppercase opacity-70">
-                Created by Shaikh Aliakbar
-            </p>
-        </div>
-    </div>
-    <div className="flex items-center gap-4">
-      <div className="flex items-center gap-2 bg-black/40 px-4 py-2 rounded-full border border-white/5 shadow-inner backdrop-blur-md">
-        <Zap size={14} className="text-yellow-400 fill-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" />
-        <span className="text-xs font-bold text-slate-200">950 <span className="text-slate-500 font-normal">Credits</span></span>
-      </div>
-      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 border-2 border-slate-800 shadow-xl flex items-center justify-center">
-         <Fingerprint className="text-white/50" size={20} />
-      </div>
-    </div>
-  </header>
 );
 
-// --- Sidebar ---
-const Sidebar: React.FC<{ current: AppView; onChange: (v: AppView) => void }> = ({ current, onChange }) => {
-  const items = [
-    { id: AppView.CANVAS, icon: Palette, label: 'Canvas' },
-    { id: AppView.IDENTITY, icon: Users, label: 'Identity' },
-    { id: AppView.UTILITY, icon: Wand2, label: 'Utility' },
-    { id: AppView.CODE, icon: Code2, label: 'Code' },
-    { id: AppView.HISTORY, icon: History, label: 'History' },
+const AspectRatioSelector: React.FC<{ value: AspectRatio; onChange: (val: AspectRatio) => void }> = ({ value, onChange }) => {
+  const ratios = [
+    { id: '1:1', label: 'Square', icon: Box, aspect: 'aspect-square' },
+    { id: '16:9', label: 'Wide', icon: RectangleHorizontal, aspect: 'aspect-video' },
+    { id: '9:16', label: 'Mobile', icon: RectangleVertical, aspect: 'aspect-[9/16]' },
   ];
 
   return (
-    <aside className="w-20 lg:w-24 flex flex-col pt-4 hidden md:flex h-[calc(100vh-80px)] fixed left-0 top-20 z-40 items-center gap-6 px-2">
-      <nav className="flex-1 space-y-4">
-        {items.map((item) => {
-          const isActive = current === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onChange(item.id)}
-              className={`relative group w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-200 ${
-                isActive 
-                  ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-lg shadow-indigo-600/30 -translate-y-1' 
-                  : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-              }`}
-            >
-                {isActive && (
-                    <div className="absolute inset-0 rounded-2xl bg-indigo-400 opacity-20 blur-md"></div>
-                )}
-              <item.icon size={24} className={`relative z-10 ${isActive ? 'stroke-[2.5px]' : ''}`} />
-              <span className="text-[9px] font-semibold relative z-10">{item.label}</span>
-              
-              {/* Active Indicator Dot */}
-              {isActive && <div className="absolute -right-1 w-2 h-2 bg-white rounded-full"></div>}
-            </button>
-          )
-        })}
-      </nav>
-      <div className="mb-6 flex flex-col items-center">
-         <div className="w-10 h-1 bg-slate-800 rounded-full mb-2"></div>
-         <p className="text-[10px] text-slate-600 font-mono rotate-180 writing-mode-vertical">V 2.5</p>
-      </div>
-    </aside>
-  );
-};
-
-// --- Mobile Nav ---
-const MobileNav: React.FC<{ current: AppView; onChange: (v: AppView) => void }> = ({ current, onChange }) => {
-    const items = [
-        { id: AppView.CANVAS, icon: Palette },
-        { id: AppView.IDENTITY, icon: Users },
-        { id: AppView.UTILITY, icon: Wand2 },
-        { id: AppView.CODE, icon: Code2 },
-        { id: AppView.HISTORY, icon: History },
-      ];
-      return (
-        <nav className="md:hidden fixed bottom-6 left-6 right-6 bg-slate-900/90 backdrop-blur-xl border border-white/10 px-6 py-4 flex justify-between z-50 rounded-2xl shadow-2xl">
-            {items.map((item) => (
-                 <button
-                 key={item.id}
-                 onClick={() => onChange(item.id)}
-                 className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all ${
-                   current === item.id
-                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 -translate-y-2'
-                     : 'text-slate-500 hover:text-slate-300'
-                 }`}
-               >
-                 <item.icon size={22} />
-               </button>
-            ))}
-        </nav>
-      )
-}
-
-// --- Identity Studio Component ---
-const IdentityStudio: React.FC<{
-  characters: Character[];
-  onTrain: (name: string, images: string[]) => Promise<void>;
-}> = ({ characters, onTrain }) => {
-  const [step, setStep] = useState(1);
-  const [name, setName] = useState('');
-  const [files, setFiles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFiles: File[] = Array.from(e.target.files);
-      const count = selectedFiles.length;
-      const newFiles: string[] = [];
-
-      selectedFiles.forEach((file: File) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (reader.result && typeof reader.result === 'string') {
-            newFiles.push(reader.result);
-            if (newFiles.length === count) {
-              setFiles((prev) => [...prev, ...newFiles]);
-            }
-          }
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-  };
-
-  const startTraining = async () => {
-    if (!name || files.length === 0) return;
-    setLoading(true);
-    await onTrain(name, files);
-    setLoading(false);
-    setStep(1);
-    setName('');
-    setFiles([]);
-  };
-
-  return (
-    <div className="p-6 max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="mb-10">
-        <h2 className="text-4xl font-black text-white mb-2 drop-shadow-lg">Identity Studio</h2>
-        <p className="text-indigo-200/60 text-lg">Train consistent character models using Nano Banana LoRA simulation.</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Training Wizard */}
-        <GlassPanel className="lg:col-span-2 p-8 relative overflow-hidden group">
-            {/* Ambient Background Effect */}
-            <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl group-hover:bg-indigo-600/30 transition-all duration-1000"></div>
-
-            {loading && (
-                <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md z-20 flex flex-col items-center justify-center">
-                    <div className="relative">
-                        <div className="w-16 h-16 border-4 border-indigo-500/30 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                    <p className="text-white font-bold mt-6 text-xl animate-pulse">Training Neural Network...</p>
-                </div>
-            )}
-            
-            <div className="flex items-center justify-between mb-8 relative z-10">
-                {[1, 2, 3].map((s) => (
-                    <React.Fragment key={s}>
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-lg transition-all duration-300 ${step >= s ? 'bg-indigo-500 text-white shadow-indigo-500/40 scale-110' : 'bg-slate-800 text-slate-500'}`}>
-                            {s}
-                        </div>
-                        {s < 3 && <div className={`h-1 flex-1 mx-4 rounded-full ${step > s ? 'bg-indigo-500/50' : 'bg-slate-800'}`}></div>}
-                    </React.Fragment>
-                ))}
-            </div>
-
-            {step === 1 && (
-                <div className="text-center py-12 px-6 border-2 border-dashed border-slate-700/50 rounded-2xl bg-slate-900/30 hover:border-indigo-500/50 hover:bg-slate-800/50 transition-all duration-300 group/upload">
-                    <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl group-hover/upload:scale-110 transition-transform duration-300">
-                        <Users className="w-10 h-10 text-indigo-400" />
-                    </div>
-                    <p className="text-2xl font-bold text-white mb-2">Upload Reference Images</p>
-                    <p className="text-slate-400 mb-8">Select 3-5 high quality face close-ups.</p>
-                    
-                    <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" id="file-upload" />
-                    <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center justify-center px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold shadow-lg transition-all hover:-translate-y-1">
-                        Select from Device
-                    </label>
-
-                    {files.length > 0 && (
-                         <div className="mt-8 flex gap-3 justify-center flex-wrap">
-                            {files.map((f, i) => (
-                                <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden shadow-lg border-2 border-slate-700 transform hover:scale-110 transition-transform">
-                                    <img src={f} className="w-full h-full object-cover" alt="ref" />
-                                </div>
-                            ))}
-                         </div>
-                    )}
-                     <div className="mt-10 flex justify-end">
-                         <Button3D onClick={() => setStep(2)} disabled={files.length === 0}>Next Step <ChevronRight size={18} /></Button3D>
-                     </div>
-                </div>
-            )}
-
-            {step === 2 && (
-                <div className="py-8">
-                    <label className="block text-sm font-bold text-indigo-300 uppercase tracking-wider mb-4">Character Name</label>
-                    <RecessedInput 
-                        type="text" 
-                        value={name}
-                        onChange={(e: any) => setName(e.target.value)}
-                        placeholder="e.g. Cyberpunk Samurai"
-                        className="text-xl"
-                    />
-                    <div className="mt-12 flex justify-between">
-                        <Button3D variant="secondary" onClick={() => setStep(1)}>Back</Button3D>
-                        <Button3D onClick={() => setStep(3)} disabled={!name}>Next Step</Button3D>
-                    </div>
-                </div>
-            )}
-
-            {step === 3 && (
-                <div className="text-center py-12">
-                    <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mx-auto mb-6 shadow-2xl shadow-indigo-500/30 flex items-center justify-center animate-bounce">
-                        <Sparkles className="text-white w-12 h-12" />
-                    </div>
-                    <h3 className="text-3xl font-black text-white mb-4">Ready to Initialize</h3>
-                    <p className="text-slate-400 mb-10 max-w-md mx-auto">We will analyze your images to create a persistent identity token suitable for the Nano Banana model.</p>
-                    <Button3D onClick={startTraining} fullWidth>
-                        Start Training Procedure
-                    </Button3D>
-                </div>
-            )}
-        </GlassPanel>
-
-        {/* Gallery */}
-        <GlassPanel className="p-6 h-fit">
-            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                <Layers className="text-indigo-400" />
-                Trained Models
-            </h3>
-            <div className="space-y-4">
-                {characters.length === 0 && (
-                    <div className="text-center py-10 opacity-50">
-                        <Users size={48} className="mx-auto mb-2" />
-                        <p className="text-sm">No models yet.</p>
-                    </div>
-                )}
-                {characters.map(char => (
-                    <div key={char.id} className="group flex items-center gap-4 p-3 bg-slate-800/40 rounded-xl border border-white/5 hover:bg-indigo-900/20 transition-all hover:border-indigo-500/30 hover:shadow-lg hover:-translate-y-1 cursor-pointer">
-                        <img src={char.thumbnail} alt={char.name} className="w-14 h-14 rounded-lg object-cover shadow-md" />
-                        <div>
-                            <p className="text-base font-bold text-slate-100 group-hover:text-indigo-300 transition-colors">{char.name}</p>
-                            <p className="text-[10px] text-slate-500 font-mono">ID: {char.id.slice(0,8)}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </GlassPanel>
+    <div className="space-y-2">
+      <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Aspect Ratio</label>
+      <div className="grid grid-cols-3 gap-3">
+        {ratios.map((r) => (
+          <button
+            key={r.id}
+            onClick={() => onChange(r.id as AspectRatio)}
+            className={`relative group flex flex-col items-center justify-center p-3 rounded-xl border-b-4 transition-all duration-200 active:translate-y-1 active:border-b-0 ${
+              value === r.id
+                ? 'bg-stone-800 border-amber-600 shadow-[0_5px_15px_rgba(245,158,11,0.2)]'
+                : 'bg-stone-900 border-stone-950 hover:bg-stone-800'
+            }`}
+          >
+            <r.icon size={20} className={`mb-2 ${value === r.id ? 'text-amber-500' : 'text-stone-500 group-hover:text-stone-300'} `} />
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${value === r.id ? 'text-white' : 'text-stone-500'}`}>{r.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
 };
 
-// --- Generation Canvas Component ---
-const GenerationCanvas: React.FC<{
-  characters: Character[];
-  onGenerate: (data: GenerationItem) => void;
-}> = ({ characters, onGenerate }) => {
+const DragDropZone: React.FC<{ 
+    onFilesSelected: (files: string[]) => void; 
+    multiple?: boolean;
+    label?: string;
+    subLabel?: string;
+    icon?: React.ElementType;
+    compact?: boolean;
+}> = ({ onFilesSelected, multiple = true, label = "Drop files here", subLabel, icon: Icon = Upload, compact = false }) => {
+    const [isDragging, setIsDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => setIsDragging(false);
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            processFiles(e.dataTransfer.files);
+        }
+    };
+
+    const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            processFiles(e.target.files);
+        }
+    };
+
+    const processFiles = (fileList: FileList) => {
+        const filesArr = Array.from(fileList);
+        const readers = filesArr.map(file => {
+            return new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+            });
+        });
+        Promise.all(readers).then(imgs => {
+            if (multiple) onFilesSelected(imgs);
+            else onFilesSelected([imgs[0]]);
+        });
+    };
+
+    return (
+        <div 
+            className={`relative group border-2 border-dashed rounded-xl transition-all cursor-pointer overflow-hidden ${
+                isDragging 
+                    ? 'border-amber-500 bg-amber-500/10 scale-[1.02]' 
+                    : 'border-stone-800 bg-stone-900/50 hover:bg-stone-900 hover:border-stone-600'
+            } ${compact ? 'p-3' : 'p-8'}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+        >
+            <input 
+                type="file" 
+                multiple={multiple} 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={handleFileInput} 
+                accept="image/*"
+            />
+            <div className={`flex flex-col items-center justify-center text-center ${compact ? 'gap-1' : 'gap-4'}`}>
+                <div className={`rounded-full flex items-center justify-center transition-transform group-hover:scale-110 ${compact ? 'w-8 h-8 bg-stone-800' : 'w-16 h-16 bg-stone-800'}`}>
+                    <Icon className={`${compact ? 'w-4 h-4' : 'w-8 h-8'} ${isDragging ? 'text-amber-500' : 'text-stone-500 group-hover:text-stone-300'} `} />
+                </div>
+                <div>
+                    <p className={`font-bold text-stone-300 ${compact ? 'text-[10px]' : 'text-sm'}`}>{label}</p>
+                    {subLabel && <p className="text-[10px] text-stone-500 mt-1 uppercase tracking-wide">{subLabel}</p>}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Feature Components ---
+
+const SecurityGate: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState(false);
+  const [status, setStatus] = useState<'LOCKED' | 'VERIFYING' | 'GRANTED'>('LOCKED');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('VERIFYING');
+    
+    setTimeout(() => {
+      if (code.toLowerCase() === 'umaismusk') {
+        setStatus('GRANTED');
+        setTimeout(onUnlock, 1200);
+      } else {
+        setStatus('LOCKED');
+        setError(true);
+        setCode('');
+        setTimeout(() => setError(false), 800);
+      }
+    }, 1000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c0a09] overflow-hidden font-mono">
+      {/* Luxurious Dark Background */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#292524_0%,_#0c0a09_100%)]" />
+      
+      {/* Amber Light Leak */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-1/2 bg-amber-500/10 blur-[150px] rounded-full pointer-events-none" />
+
+      <GlassPanel className={`w-full max-w-md p-10 m-4 transition-all duration-500 ${error ? 'border-red-500/50 shadow-[0_0_50px_rgba(220,38,38,0.3)] translate-x-2' : 'border-white/10'}`}>
+        <div className="flex flex-col items-center space-y-10">
+          
+          {/* Status Icon */}
+          <div className="relative">
+            <div className={`w-24 h-24 rounded-3xl flex items-center justify-center transition-all duration-500 shadow-2xl border-t border-white/10 ${status === 'GRANTED' ? 'bg-emerald-900/50 text-emerald-400' : error ? 'bg-red-900/50 text-red-500' : 'bg-stone-900/80 text-amber-500'}`}>
+              {status === 'GRANTED' ? <CheckCircle2 size={48} /> : error ? <AlertCircle size={48} /> : <Lock size={48} />}
+            </div>
+            {/* Spinning Ring */}
+            {status === 'VERIFYING' && (
+              <div className="absolute inset-0 -m-2 rounded-full border-2 border-amber-500/30 border-t-amber-500 animate-spin" />
+            )}
+          </div>
+
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-bold tracking-[0.3em] text-white">RESTRICTED</h2>
+            <p className={`text-xs uppercase tracking-widest font-bold ${error ? 'text-red-400' : 'text-stone-500'}`}>
+              {error ? 'Access Denied' : status === 'GRANTED' ? 'Identity Verified' : 'Enter Security Clearance'}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="w-full space-y-8">
+            <div className="relative group">
+              <input
+                type="password"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="w-full bg-black/40 border-2 border-stone-800 text-center text-2xl tracking-[0.5em] text-amber-100 rounded-xl py-5 px-4 focus:outline-none focus:border-amber-500/50 focus:bg-black/60 focus:shadow-[0_0_30px_rgba(245,158,11,0.2)] transition-all placeholder:text-stone-800 font-bold"
+                placeholder="••••••••"
+                autoFocus
+                disabled={status !== 'LOCKED'}
+              />
+            </div>
+            
+            <Button3D 
+              fullWidth 
+              variant={status === 'GRANTED' ? 'accent' : error ? 'danger' : 'primary'}
+              disabled={status !== 'LOCKED'}
+              className="py-4 text-lg"
+            >
+              {status === 'VERIFYING' ? 'DECRYPTING...' : status === 'GRANTED' ? 'WELCOME USER' : 'AUTHENTICATE'}
+            </Button3D>
+          </form>
+        </div>
+      </GlassPanel>
+      
+      <div className="absolute bottom-10 text-center space-y-2 opacity-30">
+        <ShieldCheck className="w-6 h-6 mx-auto mb-2" />
+        <p className="text-[10px] tracking-[0.3em] uppercase text-stone-400">Horizon Security Layer 4.0</p>
+      </div>
+    </div>
+  );
+};
+
+const SidebarItem: React.FC<{ 
+  icon: React.ElementType; 
+  label: string; 
+  active: boolean; 
+  onClick: () => void 
+}> = ({ icon: Icon, label, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`w-full group relative flex items-center gap-3 p-4 rounded-xl transition-all duration-300 ${
+      active 
+        ? 'bg-stone-800 text-amber-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_20px_-5px_rgba(0,0,0,0.5)] border border-stone-700' 
+        : 'hover:bg-stone-800/50 text-stone-500 hover:text-stone-200 border border-transparent'
+    }`}
+  >
+    <div className={`p-2 rounded-lg transition-colors ${active ? 'bg-amber-500/10' : 'bg-transparent'}`}>
+       <Icon size={20} className={active ? 'text-amber-500' : 'text-stone-500 group-hover:text-stone-300'} />
+    </div>
+    <span className={`font-bold tracking-wide text-sm ${active ? 'text-stone-100' : 'text-stone-500 group-hover:text-stone-300'}`}>
+      {label}
+    </span>
+    {/* Active Indicator Bar */}
+    {active && (
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-amber-500 rounded-r-full shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+    )}
+  </button>
+);
+
+const App: React.FC = () => {
+  const [isLocked, setIsLocked] = useState(true);
+  const [view, setView] = useState<AppView>(AppView.IDENTITY);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<{current: number, total: number} | null>(null);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [credits, setCredits] = useState(100);
+  const [history, setHistory] = useState<GenerationItem[]>([]);
+  const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
+
+  // Identity Studio State
+  const [uploadImages, setUploadImages] = useState<string[]>([]);
+  const [charName, setCharName] = useState('');
+
+  // Canvas State
   const [prompt, setPrompt] = useState('');
   const [negPrompt, setNegPrompt] = useState('');
-  const [selectedChar, setSelectedChar] = useState<string>('');
-  const [aspect, setAspect] = useState<any>('1:1');
-  const [style, setStyle] = useState('Cinematic');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
+  const [stylePreset, setStylePreset] = useState('Cinematic');
+  const [guidance, setGuidance] = useState(7);
+  const [seed, setSeed] = useState<number>(() => Math.floor(Math.random() * 1000000));
+  const [batchSize, setBatchSize] = useState(1);
+  const [generatedResult, setGeneratedResult] = useState<string | null>(null);
+  
+  // Advanced Controls State
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [lighting, setLighting] = useState('Studio Balanced');
+  const [camera, setCamera] = useState('35mm Prime');
+  const [colorGrade, setColorGrade] = useState('Standard');
+
+  // Story / YouTube State
+  const [script, setScript] = useState('');
+  const [storyInputMode, setStoryInputMode] = useState<'SCRIPT' | 'BULK'>('SCRIPT');
+  const [storyFrames, setStoryFrames] = useState<string[]>([]);
+  const [storyFrameCount, setStoryFrameCount] = useState(4);
+  const [storyBgRef, setStoryBgRef] = useState<string | null>(null);
+  const [storyStyleRef, setStoryStyleRef] = useState<string | null>(null); // New Style Ref
+  const [storyAspectRatio, setStoryAspectRatio] = useState<AspectRatio>('16:9');
+  const [isPreviewingVideo, setIsPreviewingVideo] = useState(false);
+  const [currentVideoFrame, setCurrentVideoFrame] = useState(0);
+
+  // Utility Lab State
+  const [utilityTool, setUtilityTool] = useState<'ASPECT' | 'FACESWAP' | 'UPSCALE'>('ASPECT');
+  const [utilBaseImage, setUtilBaseImage] = useState<string | null>(null);
+  const [utilSecondaryImage, setUtilSecondaryImage] = useState<string | null>(null);
+  const [utilResult, setUtilResult] = useState<string | null>(null);
+  const [utilAspectRatio, setUtilAspectRatio] = useState<AspectRatio>('16:9');
+
+  // Handlers
+  const handleTrainCharacter = async () => {
+    if (!charName || uploadImages.length === 0) return;
+    setLoading(true);
+    try {
+      const newChar = await trainCharacterIdentity(charName, uploadImages);
+      setCharacters([...characters, newChar]);
+      setUploadImages([]);
+      setCharName('');
+      setSelectedCharId(newChar.id);
+      setView(AppView.CANVAS); 
+    } catch (e) {
+      alert("Training failed. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!prompt) return;
-    setIsGenerating(true);
-    try {
-      const char = characters.find(c => c.id === selectedChar);
-      const imgData = await generateCreativeImage(prompt, aspect, negPrompt, char?.description, style);
-      setResult(imgData);
-      onGenerate({
-        id: crypto.randomUUID(),
-        type: 'image',
-        content: imgData,
-        prompt,
-        timestamp: Date.now(),
-        metadata: { model: 'gemini-2.5-flash-image', style, characterId: selectedChar }
-      });
-    } catch (e) {
-      alert("Generation failed. Please try again.");
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const styles = ['Cinematic', 'Anime', 'Photographic', '3D Render', 'Watercolor', 'Cyberpunk'];
-
-  return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-80px)] mt-4 lg:mt-0 gap-6 p-4 lg:p-6 max-w-[1920px] mx-auto">
-      {/* Controls - Floating Panel */}
-      <GlassPanel className="w-full lg:w-[420px] p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar h-full">
-           <div>
-            <label className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Users size={14} /> Identity Model
-            </label>
-            <div className="relative">
-                <select 
-                    value={selectedChar} 
-                    onChange={(e) => setSelectedChar(e.target.value)}
-                    className="w-full bg-slate-950/50 border border-slate-700 text-slate-200 text-sm rounded-xl px-4 py-3 appearance-none focus:ring-2 focus:ring-indigo-500/50 outline-none shadow-inner"
-                >
-                    <option value="">No Character (Pure Prompt)</option>
-                    {characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▼</div>
-            </div>
-           </div>
-
-           <div>
-            <label className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Sparkles size={14} /> Positive Prompt
-            </label>
-            <RecessedTextArea 
-                value={prompt}
-                onChange={(e: any) => setPrompt(e.target.value)}
-                rows={5}
-                placeholder="Describe your imagination in vivid detail..."
-            />
-           </div>
-
-           <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 block">Negative Prompt</label>
-            <RecessedInput 
-                type="text"
-                value={negPrompt}
-                onChange={(e: any) => setNegPrompt(e.target.value)}
-                placeholder="blur, low quality, distorted..."
-            />
-           </div>
-
-           <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 block">Style Preset</label>
-            <div className="grid grid-cols-3 gap-3">
-                {styles.map(s => (
-                    <button 
-                        key={s} 
-                        onClick={() => setStyle(s)}
-                        className={`py-2 px-1 text-xs font-semibold rounded-lg border transition-all duration-200 ${
-                            style === s 
-                            ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.2)]' 
-                            : 'bg-slate-800/40 border-slate-700 text-slate-400 hover:bg-slate-800'
-                        }`}
-                    >
-                        {s}
-                    </button>
-                ))}
-            </div>
-           </div>
-
-           <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 block">Aspect Ratio</label>
-            <div className="flex gap-3 bg-slate-950/30 p-1 rounded-xl border border-slate-800/50">
-                {['1:1', '16:9', '9:16'].map(r => (
-                     <button 
-                     key={r} 
-                     onClick={() => setAspect(r)}
-                     className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                        aspect === r 
-                        ? 'bg-indigo-600 text-white shadow-lg' 
-                        : 'text-slate-500 hover:text-slate-300'
-                     }`}
-                 >
-                     {r}
-                 </button>
-                ))}
-            </div>
-           </div>
-
-           <div className="mt-auto pt-4">
-                <Button3D 
-                    disabled={isGenerating || !prompt}
-                    onClick={handleGenerate}
-                    fullWidth
-                    className="text-lg"
-                >
-                    {isGenerating ? <div className="animate-spin mr-2">⟳</div> : <Wand2 className="mr-2" />}
-                    {isGenerating ? 'Dreaming...' : 'Generate Art'}
-                </Button3D>
-           </div>
-      </GlassPanel>
-
-      {/* Preview Area - 3D Stage */}
-      <div className="flex-1 bg-black/20 backdrop-blur-sm border border-white/5 rounded-2xl flex items-center justify-center relative overflow-hidden shadow-2xl">
-            {/* Grid Pattern */}
-            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-
-            {!result && !isGenerating && (
-                <div className="text-center opacity-40 animate-pulse">
-                    <div className="w-32 h-32 border-4 border-dashed border-slate-600 rounded-2xl mx-auto mb-6 flex items-center justify-center">
-                        <Palette size={48} className="text-slate-600" />
-                    </div>
-                    <p className="text-xl font-light tracking-wide">Ready to visualize</p>
-                </div>
-            )}
-            
-            {isGenerating && (
-                <div className="text-center z-10">
-                    <div className="relative w-32 h-32 mx-auto mb-8">
-                        <div className="absolute inset-0 border-8 border-slate-800 rounded-full"></div>
-                        <div className="absolute inset-0 border-8 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <Sparkles className="text-indigo-400 animate-ping" size={32} />
-                        </div>
-                    </div>
-                    <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 animate-pulse">
-                        DIFFUSING REALITY...
-                    </p>
-                </div>
-            )}
-
-            {result && !isGenerating && (
-                <div className="relative group max-w-full max-h-full p-8 animate-in zoom-in duration-500">
-                    <div className="relative rounded-lg shadow-2xl shadow-black/50 overflow-hidden transform transition-transform duration-500 hover:scale-[1.02] border-4 border-slate-900">
-                        <img src={result} alt="Generated" className="max-w-full max-h-[75vh] object-contain" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end justify-center pb-8">
-                            <a href={result} download="horizon_gen.png" className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-3 rounded-xl font-bold hover:bg-white/20 hover:scale-105 transition-all flex items-center gap-2">
-                                <Download size={20} /> Download HD Asset
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            )}
-      </div>
-    </div>
-  );
-};
-
-// --- Utility Lab Component ---
-const UtilityLab: React.FC = () => {
-  const [mode, setMode] = useState<'FACESWAP' | 'UPSCALE' | 'BACKGROUND'>('FACESWAP');
-  const [srcImg, setSrcImg] = useState<string>('');
-  const [targetImg, setTargetImg] = useState<string>(''); // For face swap
-  const [bgPrompt, setBgPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [output, setOutput] = useState<string>('');
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string>>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = () => setter(reader.result as string);
-        reader.readAsDataURL(file);
-    }
-  };
-
-  const process = async () => {
-    if (!srcImg) return;
     setLoading(true);
     try {
-        const res = await editImageUtility(srcImg, mode, { secondaryImage: targetImg, prompt: bgPrompt });
-        setOutput(res);
+      const activeChar = characters.find(c => c.id === selectedCharId);
+      
+      // Batch Generation Loop
+      const newHistoryItems: GenerationItem[] = [];
+      let lastImage = '';
+
+      const promises = [];
+      for (let i = 0; i < batchSize; i++) {
+        const currentSeed = seed + i;
+        promises.push(
+             generateCreativeImage(
+                prompt, 
+                aspectRatio, 
+                stylePreset,
+                {
+                    negativePrompt: negPrompt,
+                    character: activeChar,
+                    guidance,
+                    seed: currentSeed,
+                    lighting: showAdvanced ? lighting : undefined,
+                    camera: showAdvanced ? camera : undefined,
+                    colorGrade: showAdvanced ? colorGrade : undefined
+                }
+            )
+        );
+      }
+
+      const results = await Promise.all(promises);
+
+      results.forEach((res, i) => {
+          if (res) {
+            lastImage = res;
+            newHistoryItems.push({
+                id: Date.now().toString() + i, 
+                type: 'image', 
+                content: res, 
+                prompt, 
+                timestamp: Date.now(),
+                metadata: { model: 'gemini-2.5-flash-image', style: stylePreset, characterId: activeChar?.id }
+            });
+          }
+      });
+
+      if (lastImage) setGeneratedResult(lastImage); 
+      setCredits(c => c - batchSize);
+      setHistory(prev => [...newHistoryItems, ...prev]);
+
+    } catch (e) {
+      console.error(e);
+      alert("Generation failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStoryGenerate = async () => {
+    if (!script) return;
+    setLoading(true);
+    
+    // Determine the total for progress based on mode
+    const bulkPrompts = script.split('\n').filter(s => s.trim().length > 0);
+    const totalFrames = storyInputMode === 'BULK' ? bulkPrompts.length : storyFrameCount;
+
+    setProgress({ current: 0, total: totalFrames });
+    try {
+      const activeChar = characters.find(c => c.id === selectedCharId);
+      let frames: string[] = [];
+
+      if (storyInputMode === 'BULK') {
+          // DIRECT BULK MODE
+          frames = await generateStoryFromPrompts(
+              bulkPrompts,
+              activeChar,
+              storyBgRef || undefined,
+              storyStyleRef || undefined,
+              stylePreset,
+              storyAspectRatio,
+              {
+                lighting: showAdvanced ? lighting : undefined,
+                camera: showAdvanced ? camera : undefined,
+                colorGrade: showAdvanced ? colorGrade : undefined
+              },
+              (completed, total) => setProgress({ current: completed, total })
+          );
+      } else {
+          // AUTO SCRIPT MODE
+          frames = await generateScriptToStory(
+            script, 
+            storyFrameCount, 
+            activeChar, 
+            storyBgRef || undefined, 
+            storyStyleRef || undefined,
+            stylePreset, 
+            storyAspectRatio,
+            {
+                lighting: showAdvanced ? lighting : undefined,
+                camera: showAdvanced ? camera : undefined,
+                colorGrade: showAdvanced ? colorGrade : undefined
+            },
+            (completed, total) => setProgress({ current: completed, total })
+          );
+      }
+      
+      setStoryFrames(frames);
+      setCredits(c => c - frames.length);
+      
+      if (frames.length > 0) {
+        setHistory([
+            {
+            id: Date.now().toString(),
+            type: 'story',
+            content: frames,
+            prompt: script.substring(0, 50) + "...",
+            timestamp: Date.now(),
+            metadata: { model: 'gemini-2.5-flash', style: stylePreset }
+            },
+            ...history
+        ]);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Story generation failed. Please try again.");
+    } finally {
+      setLoading(false);
+      setProgress(null);
+    }
+  };
+
+  const handleUtilityAction = async () => {
+    if (!utilBaseImage) return;
+    setLoading(true);
+    try {
+        let op: 'FACESWAP' | 'UPSCALE' | 'BACKGROUND' | 'ASPECT_SHIFT' = 'UPSCALE';
+        const params: any = {};
+
+        if (utilityTool === 'FACESWAP') {
+            op = 'FACESWAP';
+            if (utilSecondaryImage) params.secondaryImage = utilSecondaryImage;
+        } else if (utilityTool === 'ASPECT') {
+            op = 'ASPECT_SHIFT';
+            params.targetAspectRatio = utilAspectRatio;
+        }
+
+        const res = await editImageUtility(utilBaseImage, op, params);
+        setUtilResult(res);
+        setCredits(c => c - 2); // Utility costs more
     } catch (e) {
         alert("Operation failed");
     } finally {
@@ -635,261 +616,669 @@ const UtilityLab: React.FC = () => {
     }
   };
 
-  return (
-    <div className="p-4 lg:p-8 max-w-7xl mx-auto h-[calc(100vh-80px)] overflow-y-auto custom-scrollbar">
-        <h2 className="text-4xl font-black text-white mb-8 drop-shadow-lg">Utility Lab</h2>
-        
-        {/* 3D Tabs */}
-        <div className="flex gap-4 mb-8 bg-slate-900/50 p-2 rounded-2xl w-fit border border-white/5 backdrop-blur-md">
-            {[
-                {id: 'FACESWAP', label: 'Face Swap'},
-                {id: 'UPSCALE', label: 'AI Upscaler'},
-                {id: 'BACKGROUND', label: 'Background Editor'}
-            ].map(m => (
-                <button 
-                    key={m.id}
-                    onClick={() => { setMode(m.id as any); setOutput(''); }}
-                    className={`px-6 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
-                        mode === m.id 
-                        ? 'bg-indigo-600 text-white shadow-lg scale-105' 
-                        : 'text-slate-400 hover:text-white hover:bg-white/5'
-                    }`}
-                >
-                    {m.label}
-                </button>
-            ))}
-        </div>
+  const downloadImage = (url: string, filename?: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename || `horizon-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Input Section */}
-            <div className="space-y-6">
-                <GlassPanel className="p-6">
-                    <p className="text-sm font-bold text-indigo-300 uppercase mb-4">Source Image</p>
-                    {srcImg ? (
-                        <div className="relative group">
-                            <img src={srcImg} className="h-64 w-full object-cover rounded-xl shadow-inner border border-slate-700" alt="src"/>
-                            <button onClick={() => setSrcImg('')} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110">
-                                <Trash2 size={16} />
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="h-64 border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center bg-slate-950/30 hover:bg-slate-900/50 transition-colors group cursor-pointer relative">
-                             <input type="file" onChange={(e) => handleFile(e, setSrcImg)} className="absolute inset-0 opacity-0 cursor-pointer" />
-                             <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform">
-                                <Wand2 className="text-indigo-400" />
-                             </div>
-                             <span className="text-slate-400 font-medium">Upload Source Image</span>
-                        </div>
-                    )}
-                </GlassPanel>
+  const handleDownloadAll = async () => {
+      for (let i = 0; i < storyFrames.length; i++) {
+        downloadImage(storyFrames[i], `sequence-${i+1}.png`);
+        await new Promise(r => setTimeout(r, 200));
+      }
+  };
 
-                {mode === 'FACESWAP' && (
-                     <GlassPanel className="p-6">
-                        <p className="text-sm font-bold text-indigo-300 uppercase mb-4">Target Face</p>
-                        {targetImg ? (
-                            <div className="relative group">
-                                <img src={targetImg} className="h-48 w-full object-cover rounded-xl shadow-inner border border-slate-700" alt="target"/>
-                                <button onClick={() => setTargetImg('')} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"><Trash2 size={16} /></button>
-                            </div>
-                        ) : (
-                            <div className="h-32 border-2 border-dashed border-slate-700 rounded-xl flex items-center justify-center bg-slate-950/30 relative group">
-                                <input type="file" onChange={(e) => handleFile(e, setTargetImg)} className="absolute inset-0 opacity-0 cursor-pointer" />
-                                <span className="text-slate-500 group-hover:text-indigo-300 transition-colors">Upload Target Face</span>
-                            </div>
-                        )}
-                    </GlassPanel>
-                )}
+  useEffect(() => {
+    let interval: any;
+    if (isPreviewingVideo && storyFrames.length > 0) {
+      interval = setInterval(() => {
+        setCurrentVideoFrame(prev => (prev + 1) % storyFrames.length);
+      }, 2000); 
+    }
+    return () => clearInterval(interval);
+  }, [isPreviewingVideo, storyFrames]);
 
-                {mode === 'BACKGROUND' && (
-                     <GlassPanel className="p-6">
-                         <p className="text-sm font-bold text-indigo-300 uppercase mb-4">New Background Prompt</p>
-                         <RecessedInput 
-                            type="text" 
-                            value={bgPrompt}
-                            onChange={(e: any) => setBgPrompt(e.target.value)}
-                            placeholder="A futuristic city with neon lights..."
-                         />
-                     </GlassPanel>
-                )}
-
-                <Button3D 
-                    onClick={process}
-                    disabled={loading || !srcImg}
-                    fullWidth
-                    className="py-4 text-lg"
-                >
-                    {loading ? 'Processing Magic...' : 'Run Operation'}
-                </Button3D>
-            </div>
-
-            {/* Output Section */}
-            <GlassPanel className="flex items-center justify-center p-6 min-h-[400px] border-indigo-500/20 shadow-[0_0_50px_rgba(79,70,229,0.1)]">
-                {output ? (
-                    <div className="relative group animate-in zoom-in duration-500">
-                        <img src={output} className="max-w-full max-h-[600px] rounded-xl shadow-2xl border border-white/10" alt="result" />
-                        <div className="absolute top-4 right-4">
-                            <a href={output} download className="bg-black/50 backdrop-blur text-white p-2 rounded-lg hover:bg-black/70 transition-colors block">
-                                <Download size={20} />
-                            </a>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="text-center opacity-30">
-                        <Layers size={64} className="mx-auto mb-4 text-slate-500" />
-                        <p className="text-slate-400 font-medium">Result will materialize here</p>
-                    </div>
-                )}
-            </GlassPanel>
-        </div>
-    </div>
-  );
-};
-
-// --- Code Studio ---
-const CodeStudio: React.FC<{ onSave: (code: string, prompt: string) => void }> = ({ onSave }) => {
-    const [prompt, setPrompt] = useState('');
-    const [code, setCode] = useState('');
-    const [loading, setLoading] = useState(false);
-
-    const handleGen = async () => {
-        setLoading(true);
-        const res = await generateComponentCode(prompt);
-        // Clean markdown
-        const clean = res.replace(/```(tsx|jsx|javascript|typescript)?/g, '').replace(/```/g, '');
-        setCode(clean);
-        setLoading(false);
-        onSave(clean, prompt);
-    };
-
-    return (
-        <div className="flex flex-col lg:flex-row h-[calc(100vh-80px)] gap-6 p-6">
-            <GlassPanel className="w-full lg:w-1/3 p-8 flex flex-col h-full">
-                <div className="mb-6">
-                    <div className="inline-block p-3 bg-yellow-500/20 rounded-xl mb-4">
-                        <Code2 className="text-yellow-400" size={32} />
-                    </div>
-                    <h3 className="text-3xl font-black text-white mb-2">Autocoding 🍌</h3>
-                    <p className="text-slate-400">Describe a UI component and our LLM engine will construct it.</p>
-                </div>
-                
-                <RecessedTextArea 
-                    value={prompt}
-                    onChange={(e: any) => setPrompt(e.target.value)}
-                    className="flex-1 mb-6 font-mono text-sm"
-                    placeholder="Create a pricing card component with 3 tiers, dark mode, using Tailwind CSS..."
-                />
-                
-                <Button3D onClick={handleGen} disabled={loading || !prompt} fullWidth>
-                    {loading ? 'Compiling...' : 'Generate Component'}
-                </Button3D>
-            </GlassPanel>
-
-            <div className="w-full lg:w-2/3 bg-[#1e1e1e] rounded-2xl p-6 overflow-auto shadow-2xl border border-slate-800 relative group">
-                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <button onClick={() => navigator.clipboard.writeText(code)} className="bg-slate-700 text-white px-3 py-1 rounded text-xs hover:bg-slate-600">Copy</button>
-                </div>
-                {code ? (
-                    <pre className="text-sm font-mono text-green-400 whitespace-pre-wrap">{code}</pre>
-                ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-600 font-mono opacity-50">
-                        <div className="w-16 h-16 border-2 border-dashed border-slate-600 rounded-lg mb-4 flex items-center justify-center">
-                            <span className="text-2xl">{'</>'}</span>
-                        </div>
-                        // Code output waiting for input...
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-// --- History Gallery ---
-const HistoryGallery: React.FC<{ history: GenerationItem[] }> = ({ history }) => (
-    <div className="p-8 max-w-[1920px] mx-auto">
-        <h2 className="text-4xl font-black text-white mb-8 drop-shadow-md">Time Capsule</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-8">
-            {history.map(item => (
-                <div key={item.id} className="group relative aspect-square bg-slate-900 rounded-2xl overflow-hidden border border-white/5 shadow-lg hover:shadow-2xl hover:shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-2">
-                    {item.type === 'image' ? (
-                        <img src={item.content} alt="history" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                    ) : (
-                        <div className="w-full h-full p-4 flex items-center justify-center bg-slate-900 group-hover:bg-slate-800 transition-colors">
-                            <Code2 className="text-slate-500 group-hover:text-indigo-400 transition-colors" size={48} />
-                        </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-4 flex flex-col justify-end">
-                        <p className="text-xs font-bold text-white line-clamp-2 mb-1 drop-shadow-md">{item.prompt}</p>
-                        <p className="text-[10px] text-slate-300 font-mono">{new Date(item.timestamp).toLocaleDateString()}</p>
-                    </div>
-                </div>
-            ))}
-            {history.length === 0 && (
-                <div className="col-span-full text-center py-20 opacity-30">
-                    <History size={64} className="mx-auto mb-4" />
-                    <p className="text-xl">Timeline is empty.</p>
-                </div>
-            )}
-        </div>
-    </div>
-);
-
-
-/* -------------------------------------------------------------------------- */
-/*                                MAIN COMPONENT                              */
-/* -------------------------------------------------------------------------- */
-
-const App: React.FC = () => {
-  const [locked, setLocked] = useState(true);
-  const [view, setView] = useState<AppView>(AppView.CANVAS);
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [history, setHistory] = useState<GenerationItem[]>([]);
-
-  // Handlers
-  const handleTrainCharacter = async (name: string, images: string[]) => {
-    try {
-        const newChar = await trainCharacterIdentity(name, images);
-        setCharacters(prev => [...prev, newChar]);
-        setView(AppView.CANVAS); 
-    } catch (e) {
-        console.error(e);
-        alert("Failed to train character.");
+  const getGridAspectClass = (ratio: AspectRatio) => {
+    switch (ratio) {
+        case '9:16': return 'aspect-[9/16]';
+        case '1:1': return 'aspect-square';
+        case '16:9': default: return 'aspect-video';
     }
   };
 
-  const handleNewGeneration = (item: GenerationItem) => {
-      setHistory(prev => [item, ...prev]);
-  };
-
-  if (locked) {
-    return <SecurityGate onUnlock={() => setLocked(false)} />;
+  if (isLocked) {
+    return <SecurityGate onUnlock={() => setIsLocked(false)} />;
   }
 
+  // Common UI Section for Advanced Controls
+  const AdvancedControls = () => (
+    <div className={`space-y-4 pt-4 border-t border-white/5 transition-all duration-300 ${showAdvanced ? 'opacity-100 max-h-[500px]' : 'opacity-0 max-h-0 overflow-hidden'}`}>
+        <Select3D 
+            label="Lighting Engine" 
+            icon={Sun}
+            value={lighting} 
+            onChange={setLighting} 
+            options={['Studio Balanced', 'Rembrandt', 'Cinematic Volumetric', 'Cyberpunk Neon', 'Natural Sunlight', 'Dark Noir', 'Golden Hour', 'Flat Lighting']} 
+        />
+        <Select3D 
+            label="Optical Lens" 
+            icon={Aperture}
+            value={camera} 
+            onChange={setCamera} 
+            options={['35mm Prime', '85mm Portrait', '24mm Wide Angle', 'Telephoto Zoom', 'Fish-eye', 'Macro Close-up', 'Drone Shot', 'Security Camera']} 
+        />
+        <Select3D 
+            label="Color Grade" 
+            icon={Droplets}
+            value={colorGrade} 
+            onChange={setColorGrade} 
+            options={['Standard', 'Vibrant', 'Muted / Desaturated', 'Warm Vintage', 'Cool Blue', 'Black & White', 'Sepia', 'Teal & Orange']} 
+        />
+    </div>
+  );
+
   return (
-    <div className="min-h-screen text-slate-100 font-sans selection:bg-indigo-500/30 overflow-x-hidden animate-in fade-in duration-700">
-      <Header />
-      <div className="flex pt-4 md:pt-0">
-        <Sidebar current={view} onChange={setView} />
-        <main className="flex-1 md:ml-24 lg:ml-24 relative min-h-[calc(100vh-80px)] pb-24 md:pb-0 transition-all duration-500">
-          {view === AppView.CANVAS && (
-             <GenerationCanvas characters={characters} onGenerate={handleNewGeneration} />
-          )}
-          {view === AppView.IDENTITY && (
-            <IdentityStudio characters={characters} onTrain={handleTrainCharacter} />
-          )}
-          {view === AppView.UTILITY && (
-            <UtilityLab />
-          )}
-          {view === AppView.CODE && (
-            <CodeStudio onSave={(code, prompt) => handleNewGeneration({
-                id: crypto.randomUUID(), type: 'code', content: code, prompt, timestamp: Date.now()
-            })} />
-          )}
-          {view === AppView.HISTORY && (
-            <HistoryGallery history={history} />
-          )}
-        </main>
+    <div className="flex flex-col lg:flex-row h-screen bg-[#0c0a09] text-stone-100 overflow-hidden font-sans selection:bg-amber-500/30">
+      
+      {/* Background Ambience */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/10 via-stone-900/0 to-transparent blur-[100px]" />
+         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-stone-800/20 via-transparent to-transparent blur-[100px]" />
       </div>
-      <MobileNav current={view} onChange={setView} />
+
+      {/* Navigation (Sidebar Desktop / Bottom Mobile) */}
+      <div className="relative z-20 lg:h-full lg:p-4 flex flex-col justify-center flex-shrink-0">
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:flex h-full flex-col">
+            <GlassPanel className="w-64 h-full flex flex-col p-4">
+            <div className="mb-8 px-2 pt-2 text-center">
+                <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-stone-100 to-stone-400 tracking-tighter drop-shadow-sm uppercase">
+                Horizon<span className="text-amber-500">.Lab</span>
+                </h1>
+                <p className="text-[10px] text-stone-500 mt-2 font-bold tracking-[0.2em] uppercase">By Shaikh Aliakbar</p>
+            </div>
+
+            <nav className="flex-1 space-y-3">
+                <SidebarItem icon={Users} label="Identity" active={view === AppView.IDENTITY} onClick={() => setView(AppView.IDENTITY)} />
+                <SidebarItem icon={Palette} label="Canvas" active={view === AppView.CANVAS} onClick={() => setView(AppView.CANVAS)} />
+                <SidebarItem icon={Film} label="YouTube Studio" active={view === AppView.STORY} onClick={() => setView(AppView.STORY)} />
+                <div className="h-px bg-white/5 my-4 mx-2" />
+                <SidebarItem icon={Wand2} label="Utility Lab" active={view === AppView.UTILITY} onClick={() => setView(AppView.UTILITY)} />
+                <SidebarItem icon={Code2} label="Code Gen" active={view === AppView.CODE} onClick={() => setView(AppView.CODE)} />
+                <SidebarItem icon={History} label="Archives" active={view === AppView.HISTORY} onClick={() => setView(AppView.HISTORY)} />
+            </nav>
+
+            <div className="mt-auto pt-6 border-t border-white/5">
+                <div className="flex items-center justify-between px-2 mb-3">
+                <span className="text-[10px] text-stone-500 font-bold uppercase tracking-wider">Credits</span>
+                <span className="text-xs font-mono text-amber-500">{credits}</span>
+                </div>
+                <div className="h-2 w-full bg-stone-950 rounded-full overflow-hidden border border-white/5">
+                <div 
+                    className="h-full bg-gradient-to-r from-amber-600 to-yellow-400 w-full shadow-[0_0_10px_rgba(245,158,11,0.5)]" 
+                    style={{ width: `${credits}%` }}
+                />
+                </div>
+            </div>
+            </GlassPanel>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto relative z-10 p-4 lg:p-6 lg:pl-0 pb-24 lg:pb-6 custom-scrollbar">
+        
+        {/* VIEW: IDENTITY STUDIO */}
+        {view === AppView.IDENTITY && (
+          <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <header className="flex flex-col md:flex-row justify-between items-end border-b border-white/5 pb-6 gap-4">
+              <div>
+                <h2 className="text-3xl lg:text-4xl font-thin text-white tracking-wide">Identity <span className="font-bold text-amber-500">Core</span></h2>
+                <p className="text-stone-400 mt-2 text-sm lg:text-lg">Train persistent neural character models.</p>
+              </div>
+            </header>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Train Panel */}
+              <GlassPanel className="lg:col-span-4 p-8 space-y-8 h-fit">
+                 <div className="space-y-4">
+                   <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest">Designation Name</label>
+                   <input 
+                      type="text" 
+                      value={charName}
+                      onChange={(e) => setCharName(e.target.value)}
+                      className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-white focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/50 transition-all placeholder:text-stone-700"
+                      placeholder="e.g. Project 77"
+                   />
+                 </div>
+                 
+                 <div className="space-y-4">
+                   <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest">Training Data (Faces)</label>
+                   <DragDropZone 
+                        onFilesSelected={(files) => setUploadImages(files)}
+                        label="Drop face imagery here"
+                        subLabel={`${uploadImages.length} Samples Loaded`}
+                        icon={Users}
+                   />
+                 </div>
+
+                 <Button3D 
+                    fullWidth 
+                    variant="primary"
+                    onClick={handleTrainCharacter} 
+                    disabled={loading || !charName || uploadImages.length === 0}
+                 >
+                    {loading ? 'Processing Neural Data...' : 'Initialize Training'}
+                 </Button3D>
+              </GlassPanel>
+
+              {/* Gallery Panel */}
+              <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 content-start">
+                 {characters.length === 0 && (
+                   <div className="col-span-full h-64 lg:h-96 flex flex-col items-center justify-center text-stone-600 border border-stone-800/50 rounded-2xl bg-stone-900/20">
+                     <Users className="h-16 w-16 mb-6 opacity-20" />
+                     <p className="font-mono text-sm">DATABASE EMPTY</p>
+                   </div>
+                 )}
+                 {characters.map(char => (
+                   <div 
+                      key={char.id} 
+                      onClick={() => setSelectedCharId(char.id)}
+                      className={`group relative aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] ${selectedCharId === char.id ? 'ring-2 ring-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.2)]' : 'border border-stone-800'}`}
+                   >
+                     <img src={char.thumbnail} alt={char.name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
+                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
+                     <div className="absolute bottom-0 left-0 right-0 p-4">
+                        <p className="font-bold text-white text-base tracking-wide">{char.name}</p>
+                        <p className="text-[10px] text-stone-400 line-clamp-2 mt-1 opacity-60 group-hover:opacity-100 transition-opacity">{char.description}</p>
+                     </div>
+                     {selectedCharId === char.id && (
+                       <div className="absolute top-3 right-3 bg-amber-500 text-black p-1.5 rounded-full shadow-lg">
+                         <CheckCircle2 size={16} strokeWidth={3} />
+                       </div>
+                     )}
+                   </div>
+                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW: GENERATION CANVAS */}
+        {view === AppView.CANVAS && (
+          <div className="flex flex-col-reverse lg:flex-row gap-6 h-full lg:h-[calc(100vh-4rem)] animate-in fade-in slide-in-from-bottom-4 duration-500">
+             {/* Controls */}
+             <GlassPanel className="w-full lg:w-[400px] flex-shrink-0 flex flex-col p-6 gap-6 h-auto lg:h-full lg:overflow-y-auto custom-scrollbar">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Input Directive</label>
+                    <span className="text-[10px] font-bold text-amber-500 bg-amber-950/30 border border-amber-900 px-2 py-0.5 rounded">GEMINI 2.5</span>
+                  </div>
+                  <textarea 
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    className="w-full h-32 bg-stone-950 border border-stone-800 rounded-xl p-4 text-white placeholder:text-stone-600 focus:border-amber-600 focus:outline-none resize-none shadow-inner text-sm leading-relaxed"
+                    placeholder="Describe the visual output..."
+                  />
+                  <input 
+                    type="text"
+                    value={negPrompt}
+                    onChange={(e) => setNegPrompt(e.target.value)}
+                    placeholder="Negative constraints (e.g. blurry, distorted)"
+                    className="w-full bg-stone-950/50 border border-stone-800 rounded-lg px-4 py-3 text-xs text-white focus:outline-none focus:border-red-900/50 focus:text-red-100 transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-3 pt-4 border-t border-white/5">
+                   <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Subject Identity</label>
+                   <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar snap-x">
+                      <button 
+                        onClick={() => setSelectedCharId(null)}
+                        className={`flex-shrink-0 h-14 w-14 rounded-xl border-2 flex items-center justify-center transition-all snap-start ${!selectedCharId ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-600'}`}
+                      >
+                        <Users size={20} />
+                      </button>
+                      {characters.map(char => (
+                        <button 
+                          key={char.id}
+                          onClick={() => setSelectedCharId(char.id)}
+                          className={`flex-shrink-0 h-14 w-14 rounded-xl border-2 overflow-hidden transition-all snap-start relative ${selectedCharId === char.id ? 'border-amber-500' : 'border-stone-800 hover:border-stone-500'}`}
+                        >
+                          <img src={char.thumbnail} className="w-full h-full object-cover" />
+                          {selectedCharId === char.id && <div className="absolute inset-0 bg-amber-500/20" />}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+
+                <div className="space-y-6 pt-4 border-t border-white/5">
+                   <AspectRatioSelector value={aspectRatio} onChange={setAspectRatio} />
+
+                   <Select3D 
+                        label="Render Style" 
+                        value={stylePreset} 
+                        onChange={setStylePreset} 
+                        options={['Cinematic', 'Pixar 3D', 'Photorealistic', '3D Render', 'Anime', 'Digital Art', 'Analog Film', 'Oil Painting', 'Sketch']} 
+                   />
+
+                   <button 
+                        onClick={() => setShowAdvanced(!showAdvanced)}
+                        className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-500 hover:text-amber-400"
+                   >
+                        <Settings size={14} /> Advanced Studio Controls {showAdvanced ? '(-)' : '(+)'}
+                   </button>
+                   
+                   <AdvancedControls />
+
+                   <RangeSlider label="Guidance Scale" value={guidance} min={1} max={20} onChange={setGuidance} />
+                   <RangeSlider label="Batch Size" value={batchSize} min={1} max={5} onChange={setBatchSize} formatValue={(v) => `x${v}`} />
+                </div>
+
+                <div className="mt-auto pt-6 pb-6 lg:pb-0">
+                  <Button3D fullWidth onClick={handleGenerate} disabled={loading || !prompt}>
+                     {loading ? (
+                        <>
+                          <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Processing...
+                        </>
+                     ) : (
+                        <>
+                          <Zap size={18} className="fill-white" /> ENGAGE
+                        </>
+                     )}
+                  </Button3D>
+                </div>
+             </GlassPanel>
+
+             {/* Preview Area */}
+             <div className="flex-1 flex flex-col gap-4 min-h-[400px]">
+                {/* Main Viewport */}
+                <div className="flex-1 rounded-2xl border border-white/10 bg-stone-950/50 backdrop-blur relative flex items-center justify-center overflow-hidden group shadow-2xl">
+                   {/* Grid Background */}
+                   <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
+                   
+                   {generatedResult ? (
+                     <div className="relative z-10 p-4 lg:p-8 w-full h-full flex items-center justify-center">
+                        <img 
+                          src={generatedResult} 
+                          className="max-w-full max-h-full rounded-lg shadow-2xl animate-in fade-in zoom-in duration-500 border border-white/10" 
+                        />
+                        <div className="absolute bottom-8 flex gap-3 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-all lg:translate-y-4 lg:group-hover:translate-y-0">
+                          <Button3D variant="secondary" onClick={() => downloadImage(generatedResult!)}><Download size={18} /></Button3D>
+                          <Button3D variant="secondary" onClick={() => handleGenerate()}><RefreshCw size={18} /></Button3D>
+                        </div>
+                     </div>
+                   ) : (
+                     <div className="text-center opacity-20 pointer-events-none select-none relative z-10">
+                        <Grid3X3 size={80} className="mx-auto mb-6 text-stone-500" strokeWidth={1} />
+                        <h3 className="text-3xl font-thin tracking-widest uppercase">Canvas Idle</h3>
+                     </div>
+                   )}
+                </div>
+
+                {/* Batch Filmstrip (if batch > 1 or history) */}
+                {history.length > 0 && (
+                   <div className="h-24 bg-stone-900/40 rounded-xl border border-white/5 flex items-center p-2 gap-2 overflow-x-auto custom-scrollbar">
+                      {history.filter(h => h.type === 'image').slice(0, 10).map((item) => (
+                         <img 
+                           key={item.id} 
+                           src={item.content as string} 
+                           onClick={() => setGeneratedResult(item.content as string)}
+                           className={`h-full aspect-square object-cover rounded-lg cursor-pointer border-2 transition-all ${generatedResult === item.content ? 'border-amber-500' : 'border-transparent opacity-60 hover:opacity-100'}`} 
+                         />
+                      ))}
+                   </div>
+                )}
+             </div>
+          </div>
+        )}
+
+        {/* VIEW: YOUTUBE STUDIO */}
+        {view === AppView.STORY && (
+          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
+             <header className="border-b border-white/5 pb-6 flex flex-col lg:flex-row justify-between items-end gap-4">
+                <div>
+                    <h2 className="text-3xl lg:text-4xl font-thin text-white tracking-wide">YouTube <span className="font-bold text-amber-500">Studio</span></h2>
+                    <p className="text-stone-400 mt-2 text-sm lg:text-lg">Automated narrative visualization engine.</p>
+                </div>
+                {storyFrames.length > 0 && (
+                    <div className="flex gap-3">
+                         <Button3D variant="secondary" onClick={handleDownloadAll}>
+                            <Download size={18} /> DOWNLOAD ALL
+                        </Button3D>
+                        <Button3D variant="accent" onClick={() => setIsPreviewingVideo(true)}>
+                            <Play size={18} /> PREVIEW VIDEO
+                        </Button3D>
+                    </div>
+                )}
+             </header>
+
+             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <GlassPanel className="xl:col-span-1 p-6 flex flex-col gap-6 h-fit">
+                  
+                  {/* Mode Toggle */}
+                  <div className="flex bg-stone-950/50 p-1 rounded-xl border border-white/5">
+                      <button 
+                         onClick={() => setStoryInputMode('SCRIPT')}
+                         className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${storyInputMode === 'SCRIPT' ? 'bg-amber-500 text-black shadow' : 'text-stone-500 hover:text-stone-300'}`}
+                      >
+                         <FileText size={14} className="inline mr-1" /> Auto-Script
+                      </button>
+                      <button 
+                         onClick={() => setStoryInputMode('BULK')}
+                         className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${storyInputMode === 'BULK' ? 'bg-amber-500 text-black shadow' : 'text-stone-500 hover:text-stone-300'}`}
+                      >
+                         <List size={14} className="inline mr-1" /> Bulk Prompts
+                      </button>
+                  </div>
+
+                  <div className="space-y-4 flex-1">
+                    <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">
+                            {storyInputMode === 'SCRIPT' ? 'Video Script / Narrative' : 'Manual Prompts (One per line)'}
+                        </label>
+                        {storyInputMode === 'BULK' && <span className="text-[10px] text-amber-500 font-bold bg-amber-900/20 px-2 py-0.5 rounded">AUTO-SPLIT ENABLED</span>}
+                    </div>
+                    <textarea 
+                      value={script}
+                      onChange={(e) => setScript(e.target.value)}
+                      className="w-full h-48 bg-stone-950 border border-stone-800 rounded-xl p-4 text-white placeholder:text-stone-700 focus:border-amber-600 focus:outline-none resize-none shadow-inner text-sm leading-relaxed"
+                      placeholder={storyInputMode === 'SCRIPT' ? "Enter your story here. The AI will break it down..." : "Paste your prompts here.\nOne prompt per line.\nExample: A cat sitting on a wall.\nExample: The cat jumps down."}
+                    />
+                  </div>
+
+                  <div className="space-y-6 border-t border-white/5 pt-6">
+                     <AspectRatioSelector value={storyAspectRatio} onChange={setStoryAspectRatio} />
+                     
+                     <Select3D 
+                        label="Visual Style" 
+                        value={stylePreset} 
+                        onChange={setStylePreset} 
+                        options={['Cinematic', 'Pixar 3D', 'Photorealistic', '3D Render', 'Anime', 'Digital Art', 'Analog Film', 'Oil Painting', 'Sketch']} 
+                   />
+
+                     <RangeSlider 
+                        label={storyInputMode === 'BULK' ? "Detected Frames" : "Sequence Length"} 
+                        value={storyInputMode === 'BULK' ? (script.split('\n').filter(s => s.trim().length > 0).length || 1) : storyFrameCount} 
+                        min={1} 
+                        max={25} 
+                        onChange={setStoryFrameCount}
+                        disabled={storyInputMode === 'BULK'}
+                        formatValue={(v) => `${v} Frames`}
+                     />
+
+                     <button 
+                        onClick={() => setShowAdvanced(!showAdvanced)}
+                        className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-500 hover:text-amber-400"
+                   >
+                        <Settings size={14} /> Pro Studio Settings {showAdvanced ? '(-)' : '(+)'}
+                   </button>
+                     <AdvancedControls />
+                     
+                     <div className="space-y-2">
+                        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Consistency Anchors</label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                           {/* Character Anchor */}
+                           <div className="bg-stone-900 border border-stone-800 rounded-xl p-3 flex flex-col items-center justify-center gap-2 text-center h-full">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selectedCharId ? 'bg-amber-500/20 text-amber-500' : 'bg-stone-800 text-stone-600'}`}>
+                                 <Users size={20} />
+                              </div>
+                              <div className="min-w-0 w-full">
+                                 <p className="text-[10px] uppercase text-stone-500 font-bold">Actor</p>
+                                 <p className="text-xs text-stone-300 truncate w-full">{selectedCharId ? characters.find(c => c.id === selectedCharId)?.name : "None"}</p>
+                              </div>
+                           </div>
+                           
+                           {/* Background Anchor */}
+                           <DragDropZone 
+                                compact
+                                multiple={false}
+                                onFilesSelected={(files) => setStoryBgRef(files[0])}
+                                label={storyBgRef ? "BG Set" : "BG Ref"}
+                                icon={ImageIcon}
+                           />
+
+                           {/* Style Anchor */}
+                           <DragDropZone 
+                                compact
+                                multiple={false}
+                                onFilesSelected={(files) => setStoryStyleRef(files[0])}
+                                label={storyStyleRef ? "Style Set" : "Style Ref"}
+                                icon={Paintbrush}
+                           />
+                        </div>
+                     </div>
+                  </div>
+
+                  <Button3D variant="primary" fullWidth onClick={handleStoryGenerate} disabled={loading || !script}>
+                    {loading ? (
+                       <span className="flex items-center gap-2">
+                          <span className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></span>
+                          {progress ? `Rendering Frame ${progress.current}/${progress.total}` : 'Analyzing...'}
+                       </span>
+                    ) : 'Generate Sequence'}
+                  </Button3D>
+                </GlassPanel>
+
+                <div className="xl:col-span-2 space-y-4">
+                  <div className="flex items-center justify-between text-stone-500 text-xs font-bold uppercase tracking-widest px-1">
+                    <span>Timeline Output</span>
+                    <span>{storyFrames.length > 0 ? `${storyFrames.length} Frames` : 'Standby'}</span>
+                  </div>
+                  
+                  {storyFrames.length > 0 ? (
+                    <div className={`grid grid-cols-2 md:grid-cols-3 gap-4 h-[600px] overflow-y-auto custom-scrollbar p-1`}>
+                      {storyFrames.map((frame, idx) => (
+                        <div key={idx} className={`group relative ${getGridAspectClass(storyAspectRatio)} rounded-xl overflow-hidden border border-white/10 shadow-lg hover:shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all bg-stone-900`}>
+                          <img src={frame} className="w-full h-full object-cover" />
+                          <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-md text-[10px] font-bold text-white border border-white/10">
+                            SEQ {idx + 1}
+                          </div>
+                          <button 
+                            onClick={() => downloadImage(frame, `frame-${idx+1}.png`)}
+                            className="absolute bottom-3 right-3 p-2 bg-amber-500 rounded-lg text-black opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"
+                          >
+                            <Download size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-full min-h-[500px] border-2 border-dashed border-stone-800 rounded-2xl flex flex-col items-center justify-center text-stone-700 bg-stone-900/20">
+                       <Clapperboard size={64} className="mb-6 opacity-20" />
+                       <p className="font-mono text-xs uppercase tracking-widest">No Sequence Data</p>
+                    </div>
+                  )}
+                </div>
+             </div>
+
+             {/* Full Screen Video Preview Modal */}
+             {isPreviewingVideo && storyFrames.length > 0 && (
+                <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+                    <button 
+                        onClick={() => setIsPreviewingVideo(false)} 
+                        className="absolute top-6 right-6 p-3 bg-stone-900 rounded-full text-white hover:bg-stone-800 z-50"
+                    >
+                        <X size={24} />
+                    </button>
+                    <div className={`max-w-5xl w-full ${getGridAspectClass(storyAspectRatio)} relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl`}>
+                        <img 
+                            src={storyFrames[currentVideoFrame]} 
+                            className="w-full h-full object-contain bg-black animate-in fade-in duration-300" 
+                        />
+                        <div className="absolute bottom-10 left-0 right-0 flex justify-center space-x-2">
+                             {storyFrames.map((_, idx) => (
+                                 <div 
+                                    key={idx} 
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentVideoFrame ? 'w-8 bg-amber-500' : 'w-2 bg-white/20'}`} 
+                                 />
+                             ))}
+                        </div>
+                        <div className="absolute top-6 left-6 bg-black/50 backdrop-blur px-4 py-2 rounded-lg text-white font-mono text-xs border border-white/10">
+                            FRAME {currentVideoFrame + 1}/{storyFrames.length}
+                        </div>
+                    </div>
+                </div>
+             )}
+          </div>
+        )}
+
+        {/* VIEW: UTILITY LAB */}
+        {view === AppView.UTILITY && (
+            <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
+                <header className="border-b border-white/5 pb-6">
+                    <h2 className="text-3xl lg:text-4xl font-thin text-white tracking-wide">Utility <span className="font-bold text-amber-500">Lab</span></h2>
+                    <p className="text-stone-400 mt-2 text-sm lg:text-lg">Advanced post-processing and modification engine.</p>
+                </header>
+
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* Tool Sidebar */}
+                    <div className="w-full lg:w-64 flex flex-col gap-2">
+                        <button onClick={() => setUtilityTool('ASPECT')} className={`p-4 rounded-xl text-left border transition-all ${utilityTool === 'ASPECT' ? 'bg-stone-800 border-amber-500 text-white shadow-lg' : 'bg-stone-900/50 border-stone-800 text-stone-500 hover:bg-stone-800'}`}>
+                            <Scaling className="mb-2" size={24} />
+                            <p className="font-bold text-sm">Smart Resizer</p>
+                            <p className="text-[10px] opacity-60">Aspect Ratio Shift</p>
+                        </button>
+                        <button onClick={() => setUtilityTool('FACESWAP')} className={`p-4 rounded-xl text-left border transition-all ${utilityTool === 'FACESWAP' ? 'bg-stone-800 border-amber-500 text-white shadow-lg' : 'bg-stone-900/50 border-stone-800 text-stone-500 hover:bg-stone-800'}`}>
+                            <ScanFace className="mb-2" size={24} />
+                            <p className="font-bold text-sm">Face Fusion</p>
+                            <p className="text-[10px] opacity-60">Identity Swap</p>
+                        </button>
+                        <button onClick={() => setUtilityTool('UPSCALE')} className={`p-4 rounded-xl text-left border transition-all ${utilityTool === 'UPSCALE' ? 'bg-stone-800 border-amber-500 text-white shadow-lg' : 'bg-stone-900/50 border-stone-800 text-stone-500 hover:bg-stone-800'}`}>
+                            <Sparkles className="mb-2" size={24} />
+                            <p className="font-bold text-sm">Clarity Engine</p>
+                            <p className="text-[10px] opacity-60">4K Upscaling</p>
+                        </button>
+                    </div>
+
+                    {/* Work Area */}
+                    <GlassPanel className="flex-1 p-8 min-h-[500px] flex flex-col">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-1">
+                            {/* Inputs */}
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Base Source</label>
+                                    <DragDropZone 
+                                        multiple={false}
+                                        onFilesSelected={(f) => setUtilBaseImage(f[0])}
+                                        label={utilBaseImage ? "Source Loaded" : "Upload Source Image"}
+                                        icon={ImageIcon}
+                                    />
+                                </div>
+
+                                {utilityTool === 'ASPECT' && (
+                                    <div className="space-y-4 animate-in fade-in">
+                                        <div className="p-4 bg-amber-500/10 rounded-lg border border-amber-500/20 text-amber-200 text-xs">
+                                            <p className="font-bold mb-1">AI Aspect Extension</p>
+                                            <p>The AI will outpaint/expand the background to fit the new ratio without stretching the subject.</p>
+                                        </div>
+                                        <AspectRatioSelector value={utilAspectRatio} onChange={setUtilAspectRatio} />
+                                    </div>
+                                )}
+
+                                {utilityTool === 'FACESWAP' && (
+                                    <div className="space-y-2 animate-in fade-in">
+                                        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Target Face</label>
+                                        <DragDropZone 
+                                            multiple={false}
+                                            onFilesSelected={(f) => setUtilSecondaryImage(f[0])}
+                                            label={utilSecondaryImage ? "Face Loaded" : "Upload Face Source"}
+                                            icon={ScanFace}
+                                            compact
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="pt-6">
+                                    <Button3D fullWidth onClick={handleUtilityAction} disabled={loading || !utilBaseImage || (utilityTool === 'FACESWAP' && !utilSecondaryImage)}>
+                                        {loading ? 'Processing...' : 'Run Operation'}
+                                    </Button3D>
+                                </div>
+                            </div>
+
+                            {/* Result */}
+                            <div className="bg-stone-950 rounded-xl border border-stone-800 flex items-center justify-center relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.03)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.03)_50%,rgba(255,255,255,0.03)_75%,transparent_75%,transparent)] bg-[size:24px_24px]" />
+                                {utilResult ? (
+                                    <div className="relative w-full h-full p-4 flex items-center justify-center">
+                                        <img src={utilResult} className="max-w-full max-h-full rounded-lg shadow-2xl border border-white/10" />
+                                        <button onClick={() => downloadImage(utilResult)} className="absolute bottom-6 right-6 p-3 bg-amber-500 text-black rounded-xl shadow-lg hover:scale-110 transition-transform">
+                                            <Download size={20} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-stone-600 relative z-10">
+                                        <Wand2 size={48} className="mx-auto mb-4 opacity-20" />
+                                        <p className="text-xs uppercase tracking-widest font-bold">Output Pending</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </GlassPanel>
+                </div>
+            </div>
+        )}
+
+        {/* VIEW: HISTORY (Archives) */}
+        {view === AppView.HISTORY && (
+            <div className="max-w-7xl mx-auto animate-in fade-in">
+                <h2 className="text-4xl font-thin text-white tracking-wide mb-10">Data <span className="font-bold text-stone-500">Archives</span></h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                    {history.map(item => (
+                        <div key={item.id} className="relative aspect-square rounded-2xl overflow-hidden group border border-white/10 bg-stone-900">
+                            {item.type === 'story' ? (
+                                <div className="w-full h-full bg-stone-950 grid grid-cols-2 gap-px">
+                                    {(item.content as string[]).slice(0,4).map((src, i) => <img key={i} src={src} className="w-full h-full object-cover opacity-80" />)}
+                                </div>
+                            ) : (
+                                <img src={item.content as string} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all" />
+                            )}
+                            <div className="absolute inset-0 bg-stone-950/80 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-3 backdrop-blur-sm">
+                                <button onClick={() => downloadImage(item.type === 'story' ? (item.content as string[])[0] : item.content as string)} className="p-3 bg-white/10 rounded-xl hover:bg-amber-500 hover:text-black text-white transition-colors"><Download size={20} /></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+        
+        {/* Placeholder Views */}
+        {view === AppView.CODE && (
+            <div className="flex items-center justify-center h-[70vh] text-stone-600 animate-in fade-in">
+                <div className="text-center">
+                    <div className="w-24 h-24 rounded-full bg-stone-900 border border-stone-800 flex items-center justify-center mx-auto mb-6">
+                        <Code2 size={40} />
+                    </div>
+                    <h2 className="text-2xl font-bold text-stone-300 mb-2 uppercase tracking-widest">Module Offline</h2>
+                    <p className="text-xs font-mono">System update pending...</p>
+                </div>
+            </div>
+        )}
+
+      </main>
+
+       {/* Mobile Bottom Navigation */}
+       <div className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-stone-950/90 backdrop-blur-xl border-t border-white/10 z-30 flex items-center justify-around px-4">
+            <button onClick={() => setView(AppView.IDENTITY)} className={`flex flex-col items-center gap-1 ${view === AppView.IDENTITY ? 'text-amber-500' : 'text-stone-500'}`}>
+                <Users size={24} />
+                <span className="text-[10px] font-bold">Identity</span>
+            </button>
+            <button onClick={() => setView(AppView.CANVAS)} className={`flex flex-col items-center gap-1 ${view === AppView.CANVAS ? 'text-amber-500' : 'text-stone-500'}`}>
+                <Palette size={24} />
+                <span className="text-[10px] font-bold">Canvas</span>
+            </button>
+             <button onClick={() => setView(AppView.STORY)} className={`flex flex-col items-center gap-1 ${view === AppView.STORY ? 'text-amber-500' : 'text-stone-500'}`}>
+                <Film size={24} />
+                <span className="text-[10px] font-bold">Studio</span>
+            </button>
+            <button onClick={() => setView(AppView.UTILITY)} className={`flex flex-col items-center gap-1 ${view === AppView.UTILITY ? 'text-amber-500' : 'text-stone-500'}`}>
+                <Wand2 size={24} />
+                <span className="text-[10px] font-bold">Tools</span>
+            </button>
+       </div>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 export enum AppView {
   IDENTITY = 'IDENTITY',
   CANVAS = 'CANVAS',
+  STORY = 'STORY',
   UTILITY = 'UTILITY',
   CODE = 'CODE',
   HISTORY = 'HISTORY'
@@ -15,8 +16,8 @@ export interface Character {
 
 export interface GenerationItem {
   id: string;
-  type: 'image' | 'code';
-  content: string; // Image URL or Code string
+  type: 'image' | 'code' | 'story';
+  content: string | string[]; // Image URL, Code string, or Array of Image URLs for story
   prompt: string;
   timestamp: number;
   metadata?: {
@@ -43,4 +44,7 @@ export interface ImageGenerationParams {
   stylePreset?: string;
   character?: Character;
   strength?: number; // Consistency strength
+  lighting?: string;
+  camera?: string;
+  colorGrade?: string;
 }
